@@ -4,8 +4,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkDocx, { type DocxOptions } from "remark-docx";
 import { latexPlugin } from "remark-docx/plugins/latex";
-// Shiki plugin handles syntax highlighting in word docs
-import { shikiPlugin } from "remark-docx/plugins/shiki";
 import { preprocessAIOutput } from "./parse";
 
 // No page-break, compact sizes. All sizes in half-points (24 = 12pt, 28 = 14pt, etc.)
@@ -48,7 +46,6 @@ const docxOptions: DocxOptions = {
   } as DocxOptions["styles"],
   plugins: [
     latexPlugin(),
-    shikiPlugin({ theme: "github-dark" }),
   ],
 };
 

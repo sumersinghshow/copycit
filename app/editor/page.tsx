@@ -58,8 +58,9 @@ export default function EditorPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Failed to export DOCX:", error);
-      alert("Failed to export DOCX. Check console for details.");
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("Failed to export DOCX:", msg);
+      alert(`Export failed: ${msg}`);
     } finally {
       setIsExportingDocx(false);
     }
