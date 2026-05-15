@@ -5,7 +5,6 @@ import { Toolbar } from "@/components/editor/Toolbar";
 import { MarkdownEditor } from "@/components/editor/MarkdownEditor";
 import { Preview } from "@/components/editor/Preview";
 import { parseMarkdownToHtml } from "@/lib/markdown/parse";
-import { generateDocxBuffer, saveBufferAsDocx } from "@/lib/markdown/docx";
 
 const INITIAL_MARKDOWN = `# Q.9) Derive an expression for barrier potential in a p-n junction diode.`; // Replaced by fetch anyway
 
@@ -38,9 +37,24 @@ export default function EditorPage() {
   const handleExportDocx = async () => {
     try {
       setIsExportingDocx(true);
-      // Generate entirely in the browser — no server, no timeout issues
-      const buffer = await generateDocxBuffer(markdown);
-      saveBufferAsDocx(buffer, "CopyCit-Document.docx");
+      const response = await fetch('/api/export/docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markdown }),
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.error || `HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "CopyCit-Document.docx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error("Failed to export DOCX:", msg);
