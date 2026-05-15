@@ -50,16 +50,22 @@ const docxOptions: DocxOptions = {
 };
 
 export async function generateDocxBuffer(markdown: string): Promise<ArrayBuffer> {
-  const preprocessed = preprocessAIOutput(markdown);
+  try {
+    const preprocessed = preprocessAIOutput(markdown);
 
-  const file = await unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkMath)
-    .use(remarkDocx, docxOptions)
-    .process(preprocessed);
+    const file = await unified()
+      .use(remarkParse)
+      .use(remarkGfm)
+      .use(remarkMath)
+      .use(remarkDocx, docxOptions)
+      .process(preprocessed);
 
-  return (await file.result) as ArrayBuffer;
+    return (await file.result) as ArrayBuffer;
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[generateDocxBuffer] error:", err);
+    throw new Error(msg);
+  }
 }
 
 export function saveBufferAsDocx(buffer: ArrayBuffer, filename: string) {
