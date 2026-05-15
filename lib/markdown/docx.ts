@@ -2,7 +2,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import remarkDocx from "remark-docx";
+import remarkDocx, { type DocxOptions } from "remark-docx";
 import { latexPlugin } from "remark-docx/plugins/latex";
 // Shiki plugin handles syntax highlighting in word docs
 import { shikiPlugin } from "remark-docx/plugins/shiki";
@@ -11,37 +11,45 @@ import { preprocessAIOutput } from "./parse";
 // No page-break, compact sizes. All sizes in half-points (24 = 12pt, 28 = 14pt, etc.)
 const noBreak = { pageBreakBefore: false, keepNext: false };
 
-const docxStyles = {
-  default: {
-    document: {
-      run: { size: 26, font: "Calibri" },          // 13pt body text (also drives equation size)
-      paragraph: { spacing: { after: 120 } },
+const docxOptions: DocxOptions = {
+  // --- thematic break: --- becomes a horizontal rule, NOT a page break
+  thematicBreak: "line",
+  styles: {
+    default: {
+      document: {
+        run: { size: 26, font: "Calibri" },          // 13pt body text
+        paragraph: { spacing: { after: 120 } },
+      },
+      title: {                                        // # H1
+        run: { size: 36, bold: true, color: "1F2937" },
+        paragraph: { ...noBreak, spacing: { before: 240, after: 160 } },
+      },
+      heading1: {                                     // ## H2
+        run: { size: 30, bold: true, color: "1F2937" },
+        paragraph: { ...noBreak, spacing: { before: 280, after: 120 } },
+      },
+      heading2: {                                     // ### H3
+        run: { size: 28, bold: true, color: "374151" },
+        paragraph: { ...noBreak, spacing: { before: 240, after: 100 } },
+      },
+      heading3: {                                     // #### H4
+        run: { size: 26, bold: true, color: "4B5563" },
+        paragraph: { ...noBreak, spacing: { before: 200, after: 80 } },
+      },
+      heading4: {
+        run: { size: 26, bold: true, italics: true, color: "4B5563" },
+        paragraph: { ...noBreak, spacing: { before: 160, after: 80 } },
+      },
+      heading5: {
+        run: { size: 26, bold: false, italics: true, color: "6B7280" },
+        paragraph: { ...noBreak, spacing: { before: 120, after: 60 } },
+      },
     },
-    title: {                                         // # H1
-      run: { size: 36, bold: true, color: "1F2937" },
-      paragraph: { ...noBreak, spacing: { before: 240, after: 160 } },
-    },
-    heading1: {                                      // ## H2
-      run: { size: 30, bold: true, color: "1F2937" },
-      paragraph: { ...noBreak, spacing: { before: 280, after: 120 } },
-    },
-    heading2: {                                      // ### H3
-      run: { size: 28, bold: true, color: "374151" },
-      paragraph: { ...noBreak, spacing: { before: 240, after: 100 } },
-    },
-    heading3: {                                      // #### H4
-      run: { size: 26, bold: true, color: "4B5563" },
-      paragraph: { ...noBreak, spacing: { before: 200, after: 80 } },
-    },
-    heading4: {
-      run: { size: 26, bold: true, italics: true, color: "4B5563" },
-      paragraph: { ...noBreak, spacing: { before: 160, after: 80 } },
-    },
-    heading5: {
-      run: { size: 26, bold: false, italics: true, color: "6B7280" },
-      paragraph: { ...noBreak, spacing: { before: 120, after: 60 } },
-    },
-  },
+  } as DocxOptions["styles"],
+  plugins: [
+    latexPlugin(),
+    shikiPlugin({ theme: "github-dark" }),
+  ],
 };
 
 export async function generateDocxBuffer(markdown: string): Promise<ArrayBuffer> {
@@ -51,15 +59,7 @@ export async function generateDocxBuffer(markdown: string): Promise<ArrayBuffer>
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
-    .use(remarkDocx, {
-      output: "buffer",
-      styles: docxStyles,
-      thematicBreak: "line",   // --- becomes a horizontal rule, NOT a page break
-      plugins: [
-        latexPlugin(),
-        shikiPlugin({ theme: "github-dark" }),
-      ]
-    })
+    .use(remarkDocx, docxOptions)
     .process(preprocessed);
 
   return (await file.result) as ArrayBuffer;
