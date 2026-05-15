@@ -44,7 +44,8 @@ export default function EditorPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate DOCX");
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.error || "Failed to generate DOCX");
       }
 
       const blob = await response.blob();

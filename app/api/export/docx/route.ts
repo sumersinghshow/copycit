@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDocxBuffer } from "@/lib/markdown/docx";
 
+export const maxDuration = 30; // 30 second timeout for heavy DOCX generation
+
 export async function POST(req: NextRequest) {
   try {
     const { markdown } = await req.json();
@@ -19,7 +21,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error generating DOCX:", error);
-    return NextResponse.json({ error: "Failed to generate DOCX" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("DOCX export error:", message);
+    return NextResponse.json({ error: "Failed to generate DOCX", detail: message }, { status: 500 });
   }
 }
