@@ -7,6 +7,7 @@ import remarkRehype from "remark-rehype";
 import rehypeMathjaxSvg from "rehype-mathjax/svg";
 import rehypeStringify from "rehype-stringify";
 import { visit } from "unist-util-visit";
+import { toHtml } from "hast-util-to-html";
 import type { Element, Root } from "hast";
 import { preprocessAIOutput } from "@/lib/markdown/parse";
 
@@ -45,7 +46,10 @@ function rehypeSvgToImg() {
       // Patch the SVG node with px dimensions before serialising
       if (wPx) node.properties = { ...node.properties, width: `${wPx}`, height: `${hPx ?? wPx}` };
 
-      const serialised = svgElementToString(node);
+      // Use hast-util-to-html with space:'svg' so that namespaced attributes
+      // like xlink:href are serialised correctly (not as camelCase xlinkHref).
+      // Without this, all <use> glyph references break and only fraction bars render.
+      const serialised = toHtml(node, { space: "svg", allowDangerousHtml: true });
       const b64 = Buffer.from(serialised).toString("base64");
       const src = `data:image/svg+xml;base64,${b64}`;
 
@@ -78,24 +82,6 @@ function rehypeSvgToImg() {
   };
 }
 
-/** Minimal recursive SVG serialiser (no external dependency needed). */
-function svgElementToString(node: Element): string {
-  const attrs = Object.entries(node.properties ?? {})
-    .map(([k, v]) => `${k}="${String(v)}"`)
-    .join(" ");
-
-  const open = attrs ? `<${node.tagName} ${attrs}>` : `<${node.tagName}>`;
-
-  const children = (node.children ?? [])
-    .map((child) => {
-      if (child.type === "element") return svgElementToString(child as Element);
-      if (child.type === "text")    return (child as { type: "text"; value: string }).value;
-      return "";
-    })
-    .join("");
-
-  return `${open}${children}</${node.tagName}>`;
-}
 
 export async function POST(req: NextRequest) {
   try {
