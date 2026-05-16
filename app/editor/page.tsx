@@ -69,12 +69,26 @@ export default function EditorPage() {
     try {
       setCopyState("copying");
       const wordHtml = await parseMarkdownToWordHtml(markdown);
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/html": new Blob([wordHtml], { type: "text/html" }),
-          "text/plain": new Blob([markdown], { type: "text/plain" }),
-        }),
-      ]);
+
+      // Use a hidden contenteditable div + execCommand — works in all browsers
+      // without requiring clipboard-write permission, and preserves HTML/MathML
+      const el = document.createElement("div");
+      el.innerHTML = wordHtml;
+      el.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+      el.contentEditable = "true";
+      document.body.appendChild(el);
+
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+
+      document.execCommand("copy");
+
+      sel?.removeAllRanges();
+      document.body.removeChild(el);
+
       setCopyState("copied");
       setTimeout(() => setCopyState("idle"), 2000);
     } catch (err) {
