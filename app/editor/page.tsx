@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Toolbar } from "@/components/editor/Toolbar";
 import { MarkdownEditor } from "@/components/editor/MarkdownEditor";
 import { Preview } from "@/components/editor/Preview";
-import { parseMarkdownToHtml } from "@/lib/markdown/parse";
+import { parseMarkdownToHtml, parseMarkdownToWordHtml } from "@/lib/markdown/parse";
 
 const INITIAL_MARKDOWN = `# Q.9) Derive an expression for barrier potential in a p-n junction diode.`; // Replaced by fetch anyway
 
@@ -12,6 +12,7 @@ export default function EditorPage() {
   const [markdown, setMarkdown] = useState("# Loading...");
   const [html, setHtml] = useState("");
   const [isExportingDocx, setIsExportingDocx] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "error">("idle");
 
   useEffect(() => {
     fetch('/torture.md')
@@ -64,6 +65,25 @@ export default function EditorPage() {
     }
   };
 
+  const handleCopyForWord = async () => {
+    try {
+      setCopyState("copying");
+      const wordHtml = await parseMarkdownToWordHtml(markdown);
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([wordHtml], { type: "text/html" }),
+          "text/plain": new Blob([markdown], { type: "text/plain" }),
+        }),
+      ]);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+      setCopyState("error");
+      setTimeout(() => setCopyState("idle"), 2000);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-muted/30">
       <Toolbar
@@ -82,8 +102,18 @@ export default function EditorPage() {
         </div>
         {/* Preview panel */}
         <div className="flex flex-col w-full md:w-1/2 h-1/2 md:h-full bg-background overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-muted/40 shrink-0">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-muted/40 shrink-0">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Preview</span>
+            <button
+              onClick={handleCopyForWord}
+              disabled={copyState === "copying"}
+              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border border-border bg-background hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-50"
+            >
+              {copyState === "copying" && "Copying…"}
+              {copyState === "copied" && "✓ Copied!"}
+              {copyState === "error" && "✗ Failed"}
+              {copyState === "idle" && "Copy for Word"}
+            </button>
           </div>
           <div className="flex-1 overflow-hidden">
             <Preview html={html} />

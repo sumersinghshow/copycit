@@ -78,7 +78,7 @@ export function preprocessAIOutput(md: string): string {
 
 export async function parseMarkdownToHtml(markdown: string): Promise<string> {
   const preprocessed = preprocessAIOutput(markdown);
-  
+
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -90,4 +90,26 @@ export async function parseMarkdownToHtml(markdown: string): Promise<string> {
     .process(preprocessed);
 
   return String(file);
+}
+
+/**
+ * Generates HTML with MathML equations (not CSS-based KaTeX HTML).
+ * When pasted into Word, MathML is automatically converted to native
+ * Word equations (OMML) — giving proper rendered math in the document.
+ */
+export async function parseMarkdownToWordHtml(markdown: string): Promise<string> {
+  const preprocessed = preprocessAIOutput(markdown);
+
+  const file = await unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(remarkRehype)
+    .use(rehypeKatex, { output: 'mathml', strict: false })
+    .use(rehypeStringify)
+    .process(preprocessed);
+
+  // Wrap in a minimal HTML document so Word picks up the structure correctly
+  const body = String(file);
+  return `<!DOCTYPE html><html><body>${body}</body></html>`;
 }
