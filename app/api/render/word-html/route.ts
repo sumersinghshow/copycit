@@ -12,38 +12,63 @@ import { preprocessAIOutput } from "@/lib/markdown/parse";
 
 export const maxDuration = 30;
 
+// 1 ex ≈ 8.5px at 13pt body font (ex = x-height ≈ 50% of em, 1em@13pt ≈ 17.3px)
+const EX_TO_PX = 8.5;
+
+/** Parse a MathJax dimension string like "18.86ex" → pixel number, or null. */
+function exToPx(val: string | undefined): number | null {
+  if (!val) return null;
+  const m = val.match(/^([\d.]+)ex$/);
+  return m ? Math.round(parseFloat(m[1]) * EX_TO_PX) : null;
+}
+
 /**
- * A rehype plugin that converts every inline <svg> element produced by
- * rehype-mathjax into an <img src="data:image/svg+xml;base64,..."> tag.
+ * Rehype plugin: converts every <svg> from rehype-mathjax into
+ * <img src="data:image/svg+xml;base64,..." width="Npx" height="Npx">.
  *
- * Why: ONLYOFFICE and LibreOffice strip bare <svg> nodes from pasted HTML,
- * but they fully support <img> elements with SVG data-URIs.
- * Word, Google Docs and every other office app also handles <img> perfectly.
+ * ONLYOFFICE & LibreOffice strip bare <svg> from pasted HTML but respect
+ * <img> with data-URIs perfectly.  Pixel dimensions are required — both apps
+ * ignore `ex` units, which is why equations were showing as tiny dashes.
  */
 function rehypeSvgToImg() {
   return (tree: Root) => {
     visit(tree, "element", (node: Element, index, parent) => {
       if (node.tagName !== "svg" || !parent || index == null) return;
 
-      // Serialise the SVG back to a string so we can base64-encode it
+      // Convert ex dimensions → px before serialising so the embedded SVG
+      // also carries absolute sizes (helps renderers that ignore viewBox).
+      const wEx = node.properties?.width  as string | undefined;
+      const hEx = node.properties?.height as string | undefined;
+      const wPx = exToPx(wEx);
+      const hPx = exToPx(hEx);
+
+      // Patch the SVG node with px dimensions before serialising
+      if (wPx) node.properties = { ...node.properties, width: `${wPx}`, height: `${hPx ?? wPx}` };
+
       const serialised = svgElementToString(node);
       const b64 = Buffer.from(serialised).toString("base64");
       const src = `data:image/svg+xml;base64,${b64}`;
 
-      // Read dimensions from the SVG attributes for sizing hints
-      const width  = (node.properties?.width  as string | undefined) ?? "";
-      const height = (node.properties?.height as string | undefined) ?? "";
-      const style  = (node.properties?.style  as string | undefined) ?? "";
+      // Vertical-align from MathJax style e.g. "vertical-align: -1.469ex"
+      const mjStyle = (node.properties?.style as string | undefined) ?? "";
+      const vaMatch = mjStyle.match(/vertical-align:\s*([-\d.]+)ex/);
+      const vaPx = vaMatch ? Math.round(parseFloat(vaMatch[1]) * EX_TO_PX) : 0;
 
-      // Replace the <svg> with an <img>
+      const styleStr = [
+        wPx  ? `width:${wPx}px`           : "",
+        hPx  ? `height:${hPx}px`          : "",
+        vaPx ? `vertical-align:${vaPx}px` : "vertical-align:middle",
+      ].filter(Boolean).join(";");
+
       const img: Element = {
         type: "element",
         tagName: "img",
         properties: {
           src,
           alt: "equation",
-          // Keep ex-based dimensions so equations scale with the surrounding text
-          style: `height:${height};${style}`,
+          width:  wPx ? String(wPx) : undefined,
+          height: hPx ? String(hPx) : undefined,
+          style: styleStr,
         },
         children: [],
       };
